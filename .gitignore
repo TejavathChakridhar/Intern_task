@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.pytest_cache/
+outputs/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.DS_Store
+.idea/
+.vscode/
+.env
+.env.*
+secrets.json

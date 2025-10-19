@@ -1,0 +1,17 @@
+{
+  "query": {
+    "cnr": "MHDS1234567890",
+    "case_re": null,
+    "url": "C:\\Users\\tejav\\OneDrive\\Desktop\\New folder (3)\\tests\\fixtures\\cause_list_sample.html",
+    "date": "today",
+    "date_str": "19-10-2025"
+  },
+  "matches": [
+    {
+      "text": "1 Court No. 1 CIV 123 of 2024 - John vs Jane (CNR: MHDS1234567890) PDF",
+      "serial": "1",
+      "court": "Court No. 1",
+      "pdf": "/docs/case_123.pdf"
+    }
+  ]
+}

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eCourts Case Checker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-top: 8px;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+        .radio-group input[type="radio"] {
+            width: auto;
+            margin-right: 5px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+        .results.show {
+            display: block;
+        }
+        .match-card {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        .match-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .match-card p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .error {
+            background: #fee;
+            border-left-color: #f44;
+            color: #c33;
+        }
+        .success {
+            background: #efe;
+            border-left-color: #4a4;
+            color: #363;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .loading.show {
+            display: block;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚖️ eCourts Case Checker</h1>
+        <p class="subtitle">Check if your case is listed today or tomorrow</p>
+        
+        <form id="searchForm">
+            <div class="form-group">
+                <label>Search By:</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="searchType" value="cnr" checked>
+                        CNR Number
+                    </label>
+                    <label>
+                        <input type="radio" name="searchType" value="case">
+                        Case Details
+                    </label>
+                </div>
+            </div>
+
+            <div id="cnrInput" class="form-group">
+                <label for="cnr">CNR Number:</label>
+                <input type="text" id="cnr" placeholder="e.g., MHDS1234567890">
+            </div>
+
+            <div id="caseInput" class="form-group" style="display: none;">
+                <label for="caseType">Case Type:</label>
+                <input type="text" id="caseType" placeholder="e.g., CIV, CRLP">
+                
+                <label for="caseNumber" style="margin-top: 10px;">Case Number:</label>
+                <input type="text" id="caseNumber" placeholder="e.g., 123">
+                
+                <label for="caseYear" style="margin-top: 10px;">Year:</label>
+                <input type="text" id="caseYear" placeholder="e.g., 2024">
+            </div>
+
+            <div class="form-group">
+                <label for="causeListUrl">Cause List URL:</label>
+                <input type="text" id="causeListUrl" 
+                       value="tests/fixtures/cause_list_sample.html"
+                       placeholder="URL or file path to cause list">
+            </div>
+
+            <div class="form-group">
+                <label for="dateSelect">Check for:</label>
+                <select id="dateSelect">
+                    <option value="today" selected>Today</option>
+                    <option value="tomorrow">Tomorrow</option>
+                </select>
+            </div>
+
+            <button type="submit">🔍 Search Case</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">Searching...</p>
+        </div>
+
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000';
+        
+        // Toggle search input fields
+        document.querySelectorAll('input[name="searchType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'cnr') {
+                    document.getElementById('cnrInput').style.display = 'block';
+                    document.getElementById('caseInput').style.display = 'none';
+                } else {
+                    document.getElementById('cnrInput').style.display = 'none';
+                    document.getElementById('caseInput').style.display = 'block';
+                }
+            });
+        });
+
+        // Form submission
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const searchType = document.querySelector('input[name="searchType"]:checked').value;
+            const url = document.getElementById('causeListUrl').value;
+            const date = document.getElementById('dateSelect').value;
+            
+            let apiUrl = `${API_BASE}/api/search?url=${encodeURIComponent(url)}&date=${date}`;
+            
+            if (searchType === 'cnr') {
+                const cnr = document.getElementById('cnr').value;
+                if (!cnr) {
+                    alert('Please enter CNR number');
+                    return;
+                }
+                apiUrl += `&cnr=${encodeURIComponent(cnr)}`;
+            } else {
+                const type = document.getElementById('caseType').value;
+                const number = document.getElementById('caseNumber').value;
+                const year = document.getElementById('caseYear').value;
+                if (!type || !number || !year) {
+                    alert('Please fill all case details');
+                    return;
+                }
+                apiUrl += `&type=${encodeURIComponent(type)}&number=${encodeURIComponent(number)}&year=${encodeURIComponent(year)}`;
+            }
+            
+            // Show loading
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('results').classList.remove('show');
+            
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                // Hide loading
+                document.getElementById('loading').classList.remove('show');
+                
+                // Display results
+                displayResults(data);
+            } catch (error) {
+                document.getElementById('loading').classList.remove('show');
+                displayError('Failed to connect to API. Make sure api_server.py is running.');
+            }
+        });
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            
+            if (data.error) {
+                resultsDiv.innerHTML = `<div class="match-card error"><h3>❌ Error</h3><p>${data.error}</p></div>`;
+            } else if (data.count === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="match-card">
+                        <h3>🔍 No Listings Found</h3>
+                        <p>No matches found for <strong>${data.date}</strong> (${data.date_str})</p>
+                    </div>
+                `;
+            } else {
+                let html = `
+                    <div class="match-card success">
+                        <h3>✅ Found ${data.count} Listing(s)</h3>
+                        <p>Date: <strong>${data.date}</strong> (${data.date_str})</p>
+                    </div>
+                `;
+                
+                data.matches.forEach((match, i) => {
+                    html += `
+                        <div class="match-card">
+                            <h3>Match ${i + 1}</h3>
+                            <p><strong>Serial No.:</strong> ${match.serial || 'N/A'}</p>
+                            <p><strong>Court:</strong> ${match.court || 'N/A'}</p>
+                            <p><strong>PDF:</strong> ${match.pdf ? `<a href="${match.pdf}" target="_blank">Download</a>` : 'Not available'}</p>
+                            <p><strong>Details:</strong> ${match.text.substring(0, 200)}...</p>
+                        </div>
+                    `;
+                });
+                
+                resultsDiv.innerHTML = html;
+            }
+            
+            resultsDiv.classList.add('show');
+        }
+
+        function displayError(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<div class="match-card error"><h3>❌ Error</h3><p>${message}</p></div>`;
+            resultsDiv.classList.add('show');
+        }
+    </script>
+</body>
+</html>
